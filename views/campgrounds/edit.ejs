@@ -2,7 +2,12 @@
 <div class="row">
   <h1 class="text-center">Edit Campground</h1>
   <div class="col-6 offset-3">
-    <form action="/campgrounds" class="valid-form" method="post" novalidate>
+    <form
+      action="/campgrounds/<%= campground._id%>?_method=PUT"
+      class="valid-form"
+      method="post"
+      novalidate
+    >
       <div class="form-group mb-3">
         <label class="form-label" for="title">Title</label>
         <input
