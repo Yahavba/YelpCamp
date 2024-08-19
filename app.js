@@ -9,8 +9,9 @@ const catchAsync = require("./utilities/catchAsync");
 const ExpressError = require("./utilities/ExpressError");
 const ObjectID = require("mongoose").Types.ObjectId;
 const campground = require("./models/campground");
+const Review = require("./models/review");
 const { title } = require("process");
-const { campgroundSchema } = require("./schemas.js");
+const { campgroundSchema, reviewSchema } = require("./schemas.js");
 
 mongoose
   .connect("mongodb://127.0.0.1:27017/yelp-camp")
@@ -30,6 +31,16 @@ app.use(methodOverride("_method"));
 
 const validateCampground = (req, res, next) => {
   const { error } = campgroundSchema.validate(req.body);
+  if (error) {
+    const msg = error.details.map((el) => el.message).join(",");
+    throw new ExpressError(msg, 400);
+  } else {
+    next();
+  }
+};
+
+const validateReview = (req, res, next) => {
+  const { error } = reviewSchema.validate(req.body);
   if (error) {
     const msg = error.details.map((el) => el.message).join(",");
     throw new ExpressError(msg, 400);
@@ -71,7 +82,7 @@ app.get(
     if (!ObjectID.isValid(id)) {
       throw new ExpressError("Invalid Id", 400);
     }
-    const campground = await Campground.findById(id);
+    const campground = await Campground.findById(id).populate("reviews");
     if (!campground) {
       throw new ExpressError("No campground found", 404);
     }
@@ -111,7 +122,30 @@ app.delete(
   })
 );
 
-app.get("*", (req, res, next) => {
+app.post(
+  "/campgrounds/:id/reviews",
+  validateReview,
+  catchAsync(async (req, res) => {
+    const campground = await Campground.findById(req.params.id);
+    const newReview = new Review(req.body.review);
+    campground.reviews.push(newReview);
+    await newReview.save();
+    await campground.save();
+    res.redirect(`/campgrounds/${campground._id}`);
+  })
+);
+
+app.delete(
+  "/campgrounds/:id/reviews/:reviewId",
+  catchAsync(async (req, res) => {
+    const { id, reviewId } = req.params;
+    await Campground.findByIdAndUpdate(id, { $pull: { reviews: reviewId } });
+    await Review.findByIdAndDelete(reviewId);
+    res.redirect(`/campgrounds/${id}`);
+  })
+);
+
+app.all("*", (req, res, next) => {
   next(new ExpressError("Page Not Found", 404));
 });
 
